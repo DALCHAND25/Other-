@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Employee SN Scanner</title>
+  <script src="https://unpkg.com/html5-qrcode"></script>
+  <style>
+    body { font-family: Arial; text-align: center; }
+    #reader { width: 300px; margin: auto; }
+    table { margin-top: 20px; border-collapse: collapse; width: 100%; }
+    table, th, td { border: 1px solid black; padding: 8px; }
+    button { margin: 5px; padding: 10px; }
+  </style>
+</head>
+
+<body>
+
+<h2>Employee Serial Number Scanner</h2>
+
+<label>Date:</label>
+<input type="date" id="date"><br><br>
+
+<label>Name:</label>
+<input type="text" id="name"><br><br>
+
+<button onclick="startSession()">Start Session</button>
+<button onclick="resetSession()">Reset</button>
+<button onclick="downloadCSV()">Download Excel</button>
+
+<h3 id="activeUser"></h3>
+<h3>Total Scanned: <span id="count">0</span></h3>
+
+<div id="reader"></div>
+
+<table id="dataTable">
+  <tr>
+    <th>Date</th>
+    <th>Name</th>
+    <th>Serial No.</th>
+    <th>Action</th>
+  </tr>
+</table>
+
+<script>
+let activeName = "";
+let activeDate = "";
+let scannedSet = new Set();
+let count = 0;
+
+function startSession() {
+  activeName = document.getElementById("name").value;
+  activeDate = document.getElementById("date").value;
+
+  if (!activeName || !activeDate) {
+    alert("Enter Name and Date first");
+    return;
+  }
+
+  document.getElementById("activeUser").innerHTML =
+    "Active Employee: " + activeName + " (" + activeDate + ")";
+
+  document.getElementById("name").disabled = true;
+  document.getElementById("date").disabled = true;
+}
+
+function resetSession() {
+  activeName = "";
+  activeDate = "";
+  scannedSet.clear();
+  count = 0;
+
+  document.getElementById("count").innerText = 0;
+  document.getElementById("activeUser").innerHTML = "";
+
+  document.getElementById("name").disabled = false;
+  document.getElementById("date").disabled = false;
+
+  let table = document.getElementById("dataTable");
+  table.innerHTML = `
+    <tr>
+      <th>Date</th>
+      <th>Name</th>
+      <th>Serial No.</th>
+      <th>Action</th>
+    </tr>`;
+}
+
+function deleteRow(btn, sn) {
+  btn.parentNode.parentNode.remove();
+  scannedSet.delete(sn);
+  count--;
+  document.getElementById("count").innerText = count;
+}
+
+function onScanSuccess(decodedText) {
+  if (!activeName || !activeDate) {
+    alert("Start session first");
+    return;
+  }
+
+  if (scannedSet.has(decodedText)) {
+    alert("Duplicate Serial No.!");
+    return;
+  }
+
+  scannedSet.add(decodedText);
+
+  let table = document.getElementById("dataTable");
+  let row = table.insertRow(-1);
+
+  row.insertCell(0).innerHTML = activeDate;
+  row.insertCell(1).innerHTML = activeName;
+  row.insertCell(2).innerHTML = decodedText;
+
+  let btn = document.createElement("button");
+  btn.innerText = "Delete";
+  btn.onclick = function() {
+    deleteRow(this, decodedText);
+  };
+
+  row.insertCell(3).appendChild(btn);
+
+  count++;
+  document.getElementById("count").innerText = count;
+}
+
+function downloadCSV() {
+  let csv = "Date,Name,Serial No.\n";
+  let rows = document.querySelectorAll("#dataTable tr");
+
+  for (let i = 1; i < rows.length; i++) {
+    let cols = rows[i].querySelectorAll("td");
+    csv += cols[0].innerText + "," +
+           cols[1].innerText + "," +
+           cols[2].innerText + "\n";
+  }
+
+  let blob = new Blob([csv], { type: "text/csv" });
+  let link = document.createElement("a");
+  link.href = URL.createObjectURL(blob);
+  link.download = "scan_data.csv";
+  link.click();
+}
+
+let scanner = new Html5QrcodeScanner("reader", { fps: 10, qrbox: 250 });
+scanner.render(onScanSuccess);
+</script>
+
+</body>
+</html>
